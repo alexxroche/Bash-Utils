@@ -7,7 +7,7 @@ Author:  Laszlo Szathmary, 2011 (jabba.laci@gmail.com)
 Website: https://pythonadventures.wordpress.com/2011/03/10/extract-all-links-from-a-web-page/
 GitHub:  https://github.com/jabbalaci/Bash-Utils
 
-Given a webpage, extract all links.
+Given a webpage, extract all links. Now groks gzip
 
 Usage:
 ------
@@ -17,6 +17,8 @@ Usage:
 import sys
 import urllib
 import urlparse
+import gzip
+from StringIO import StringIO
 
 from BeautifulSoup import BeautifulSoup
 
@@ -27,13 +29,25 @@ class MyOpener(urllib.FancyURLopener):
 
 def process(url):
     myopener = MyOpener()
-    #page = urllib.urlopen(url)
-    page = myopener.open(url)
 
-    text = page.read()
-    page.close()
+    try:
+        response = myopener.open(url)
+    except HTTPError as e:
+        print 'The server couldn\'t fulfill the request.'
+        print 'Error code: ', e.code
+    except URLError as e:
+        print 'We failed to reach a server.'
+        print 'Reason: ', e.reason
+    else:
+        if response.info().get('Content-Encoding') == 'gzip':
+            buf = StringIO( response.read())
+            f = gzip.GzipFile(fileobj=buf)
+            the_page = f.read()
+        else:
+            the_page = response.read()
+        response.close()
 
-    soup = BeautifulSoup(text)
+    soup = BeautifulSoup(the_page)
 
     for tag in soup.findAll('a', href=True):
         tag['href'] = urlparse.urljoin(url, tag['href'])
@@ -55,3 +69,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
